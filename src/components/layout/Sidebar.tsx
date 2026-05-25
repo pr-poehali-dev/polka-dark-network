@@ -43,9 +43,7 @@ export default function Sidebar({ active, onNav }: SidebarProps) {
           className="w-8 h-8 object-contain"
           style={{ filter: "drop-shadow(0 0 8px rgba(139,92,246,0.5))" }}
         />
-        <span className="font-black text-lg tracking-tight" style={{ color: "var(--text-primary)" }}>
-          Polka
-        </span>
+        <span className="font-black text-lg tracking-tight" style={{ color: "var(--text-primary)" }}>Полка</span>
       </div>
 
       {/* Navigation */}
