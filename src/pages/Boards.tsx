@@ -4,97 +4,244 @@ import { boards, feedItems } from "@/data/mockData";
 
 type Board = { id: number; name: string; count: number; color: string; items: number[] };
 
-const ALTERNATIVES = [
-  { id: 101, color: "from-pink-900/70 to-rose-800/50", text: "Похожая архитектура" },
-  { id: 102, color: "from-violet-900/70 to-purple-800/50", text: "В похожем стиле" },
-  { id: 103, color: "from-amber-900/70 to-orange-800/50", text: "Близкая палитра" },
-  { id: 104, color: "from-teal-900/70 to-cyan-800/50", text: "Смежная тема" },
-  { id: 105, color: "from-indigo-900/70 to-blue-800/50", text: "Из той же серии" },
-  { id: 106, color: "from-fuchsia-900/70 to-pink-800/50", text: "Вдохновлено этим" },
+// Accent colours for board previews (CSS-safe, no Tailwind)
+const BOARD_CELL_SETS: string[][] = [
+  ["#3b0a6e", "#6d1b7b", "#0f2040", "#1e3a6e"],
+  ["#400a0a", "#6e1b2a", "#064e3b", "#065f46"],
+  ["#1a1207", "#3d2a0d", "#0f172a", "#1e3a5f"],
+  ["#3b0764", "#6d1b7b", "#1a0533", "#2d0a55"],
 ];
 
-// Cutout editor modal
+const GRADIENT_OPTIONS: string[] = [
+  "linear-gradient(135deg,#7B4DFF,#E94FCB)",
+  "linear-gradient(135deg,#E94FCB,#ff6b6b)",
+  "linear-gradient(135deg,#3b82f6,#6366f1)",
+  "linear-gradient(135deg,#10b981,#06b6d4)",
+  "linear-gradient(135deg,#f59e0b,#f97316)",
+  "linear-gradient(135deg,#8b5cf6,#ec4899)",
+];
+
+const ITEM_COLORS = [
+  "linear-gradient(135deg,#3b0a6e,#6d1b7b)",
+  "linear-gradient(135deg,#0f2040,#1e3a6e)",
+  "linear-gradient(135deg,#400a0a,#6e1b2a)",
+  "linear-gradient(135deg,#064e3b,#065f46)",
+  "linear-gradient(135deg,#1a1207,#3d2a0d)",
+  "linear-gradient(135deg,#1a0533,#2d0a55)",
+  "linear-gradient(135deg,#0f172a,#1e3a5f)",
+  "linear-gradient(135deg,#3b0764,#6d1b7b)",
+];
+
+const ALTERNATIVES = [
+  { id: 101, gradient: "linear-gradient(135deg,#3b0a6e,#6d1b7b)", text: "Похожая архитектура", icon: "Building2" },
+  { id: 102, gradient: "linear-gradient(135deg,#1a0533,#2d0a55)", text: "В похожем стиле", icon: "Palette" },
+  { id: 103, gradient: "linear-gradient(135deg,#1a1207,#3d2a0d)", text: "Близкая палитра", icon: "Droplets" },
+  { id: 104, gradient: "linear-gradient(135deg,#064e3b,#065f46)", text: "Смежная тема", icon: "Layers" },
+  { id: 105, gradient: "linear-gradient(135deg,#0f2040,#1e3a6e)", text: "Из той же серии", icon: "Copy" },
+  { id: 106, gradient: "linear-gradient(135deg,#400a0a,#6e1b2a)", text: "Вдохновлено этим", icon: "Sparkles" },
+];
+
+// ─── Cutout Editor ────────────────────────────────────────────────────────────
+const EMOJIS = ["🌸", "🌙", "⭐", "🦋", "🎨", "🌊", "🔮", "💎"];
+
 function CutoutEditor({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<"upload" | "edit" | "done">("upload");
-  const [selectedObj, setSelectedObj] = useState<string | null>(null);
-
-  const objects = ["🌸", "🌙", "⭐", "🦋", "🎨", "🌊", "🔮", "💎"];
+  const [selected, setSelected] = useState<string | null>(null);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.85)" }} onClick={onClose}>
-      <div className="animate-scale-in card p-6 w-[520px]" style={{ background: "#0e0e28", boxShadow: "var(--shadow-elevated)" }} onClick={e => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.85)" }}
+      onClick={onClose}
+    >
+      <div
+        className="animate-scale-in pk-card p-6 w-[520px]"
+        style={{ background: "var(--card)", boxShadow: "var(--shadow-lg)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
         <div className="flex items-center justify-between mb-5">
-          <span className="section-title">Вырезать объект</span>
-          <button className="btn-icon" onClick={onClose}><Icon name="X" size={15} /></button>
+          <div>
+            <div className="pk-title">Вырезать объект</div>
+            <div className="pk-subtitle mt-0.5">
+              {step === "upload" && "Загрузите изображение"}
+              {step === "edit" && "Выделите объект"}
+              {step === "done" && "Готово!"}
+            </div>
+          </div>
+          <button className="pk-icon-btn" onClick={onClose}>
+            <Icon name="X" size={14} />
+          </button>
+        </div>
+
+        {/* Steps indicator */}
+        <div className="flex items-center gap-2 mb-5">
+          {(["upload", "edit", "done"] as const).map((s, i) => (
+            <div key={s} className="flex items-center gap-2">
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                style={{
+                  background:
+                    step === s
+                      ? "var(--accent-grad)"
+                      : (["upload", "edit", "done"].indexOf(step) > i)
+                      ? "rgba(123,77,255,0.3)"
+                      : "var(--surface)",
+                  color:
+                    step === s || (["upload", "edit", "done"].indexOf(step) > i)
+                      ? "#fff"
+                      : "var(--text-4)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                {i + 1}
+              </div>
+              {i < 2 && (
+                <div
+                  className="flex-1 h-px"
+                  style={{
+                    width: 40,
+                    background:
+                      (["upload", "edit", "done"].indexOf(step) > i)
+                        ? "var(--accent)"
+                        : "var(--border)",
+                  }}
+                />
+              )}
+            </div>
+          ))}
         </div>
 
         {step === "upload" && (
           <div>
-            <div className="rounded-2xl border-2 border-dashed flex flex-col items-center justify-center py-12 mb-4 cursor-pointer hover:border-violet-500 transition-colors"
-              style={{ borderColor: "rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.05)" }}
-              onClick={() => setStep("edit")}>
-              <Icon name="Upload" size={36} style={{ color: "var(--accent-1)" }} />
-              <div className="mt-3 font-semibold" style={{ color: "var(--text-primary)" }}>Загрузите изображение</div>
-              <div className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>PNG, JPG до 20 МБ</div>
+            <div
+              className="rounded-2xl border-2 border-dashed flex flex-col items-center justify-center py-14 mb-4 cursor-pointer transition-all"
+              style={{
+                borderColor: "rgba(123,77,255,0.4)",
+                background: "rgba(123,77,255,0.05)",
+              }}
+              onClick={() => setStep("edit")}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLElement).style.borderColor = "var(--accent)")
+              }
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLElement).style.borderColor = "rgba(123,77,255,0.4)")
+              }
+            >
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3"
+                style={{ background: "rgba(123,77,255,0.12)" }}
+              >
+                <Icon name="Upload" size={26} style={{ color: "var(--accent)" }} />
+              </div>
+              <div className="font-semibold mb-1" style={{ color: "var(--text)" }}>
+                Загрузите изображение
+              </div>
+              <div className="pk-subtitle">PNG, JPG до 20 МБ · нажмите или перетащите</div>
             </div>
-            <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
-              Или нажмите, чтобы выбрать файл
-            </p>
           </div>
         )}
 
         {step === "edit" && (
           <div>
-            <div className="rounded-2xl mb-4 relative flex items-center justify-center"
-              style={{ height: 280, background: "linear-gradient(135deg, #1a0533, #0a0a25)" }}>
-              <div className="absolute inset-0 bg-gradient-to-br from-pink-900/40 to-violet-900/40 rounded-2xl" />
-              <div className="relative text-center">
-                <div className="text-6xl mb-2">{selectedObj ?? "🌸"}</div>
-                <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>Объект выделен</p>
+            <div
+              className="rounded-2xl mb-4 relative flex items-center justify-center overflow-hidden"
+              style={{ height: 260, background: "linear-gradient(135deg,#1a0533,#0a0a25)" }}
+            >
+              <div
+                className="absolute inset-0"
+                style={{ background: "linear-gradient(135deg,rgba(233,79,203,0.25),rgba(123,77,255,0.25))" }}
+              />
+              <div className="relative text-center z-10">
+                <div className="text-7xl mb-2">{selected ?? "🌸"}</div>
+                <div className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
+                  Объект выделен
+                </div>
               </div>
-              {/* Selection handles */}
-              <div className="absolute inset-4 rounded-xl" style={{ border: "2px dashed rgba(139,92,246,0.7)" }}>
-                {["top-0 left-0", "top-0 right-0", "bottom-0 left-0", "bottom-0 right-0"].map(pos => (
-                  <div key={pos} className={`absolute ${pos} w-3 h-3 rounded-sm -translate-x-0.5 -translate-y-0.5`}
-                    style={{ background: "var(--accent-gradient)" }} />
-                ))}
+              {/* Dashed selection box */}
+              <div
+                className="absolute"
+                style={{
+                  inset: 24,
+                  border: "2px dashed rgba(123,77,255,0.7)",
+                  borderRadius: 12,
+                }}
+              >
+                {(["top-0 left-0", "top-0 right-0", "bottom-0 left-0", "bottom-0 right-0"] as const).map(
+                  (pos) => (
+                    <div
+                      key={pos}
+                      className={`absolute ${pos} w-3 h-3 rounded-sm`}
+                      style={{ background: "var(--accent-grad)", margin: -2 }}
+                    />
+                  )
+                )}
               </div>
             </div>
 
-            <div className="mb-4">
-              <p className="text-xs mb-2 font-medium" style={{ color: "var(--text-secondary)" }}>Выберите объект для вырезки:</p>
+            <div className="mb-5">
+              <div className="pk-label mb-2">Выберите объект для вырезки</div>
               <div className="flex gap-2 flex-wrap">
-                {objects.map(obj => (
-                  <button key={obj} onClick={() => setSelectedObj(obj)}
-                    className="text-2xl w-10 h-10 rounded-xl flex items-center justify-center transition-all"
-                    style={{ background: selectedObj === obj ? "rgba(139,92,246,0.2)" : "rgba(255,255,255,0.06)", border: `1px solid ${selectedObj === obj ? "rgba(139,92,246,0.5)" : "var(--border-subtle)"}` }}>
-                    {obj}
+                {EMOJIS.map((em) => (
+                  <button
+                    key={em}
+                    onClick={() => setSelected(em)}
+                    className="text-2xl w-11 h-11 rounded-xl flex items-center justify-center transition-all"
+                    style={{
+                      background:
+                        selected === em
+                          ? "rgba(123,77,255,0.18)"
+                          : "var(--surface)",
+                      border: `1px solid ${selected === em ? "var(--accent)" : "var(--border)"}`,
+                    }}
+                  >
+                    {em}
                   </button>
                 ))}
               </div>
             </div>
 
             <div className="flex gap-2">
-              <button className="btn-ghost flex-1 justify-center text-sm" onClick={() => setStep("upload")}>
-                <Icon name="ArrowLeft" size={13} />Назад
+              <button
+                className="pk-btn pk-btn-ghost flex-1"
+                onClick={() => setStep("upload")}
+              >
+                <Icon name="ArrowLeft" size={13} />
+                Назад
               </button>
-              <button className="btn-primary flex-1 justify-center text-sm" onClick={() => setStep("done")}>
-                <Icon name="Scissors" size={13} />Вырезать
+              <button
+                className="pk-btn pk-btn-primary flex-1"
+                onClick={() => setStep("done")}
+              >
+                <Icon name="Scissors" size={13} />
+                Вырезать
               </button>
             </div>
           </div>
         )}
 
         {step === "done" && (
-          <div className="text-center py-8">
-            <div className="text-6xl mb-4">{selectedObj ?? "🌸"}</div>
-            <div className="font-bold mb-2" style={{ color: "var(--text-primary)" }}>Объект вырезан!</div>
-            <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-              Объект сохранён на прозрачном фоне и готов к использованию в постах и историях
-            </p>
+          <div className="text-center py-6">
+            <div
+              className="w-20 h-20 rounded-full flex items-center justify-center text-4xl mx-auto mb-4"
+              style={{ background: "rgba(123,77,255,0.12)", border: "1px solid rgba(123,77,255,0.3)" }}
+            >
+              {selected ?? "🌸"}
+            </div>
+            <div className="pk-title mb-2">Объект вырезан!</div>
+            <div className="pk-subtitle mb-6 max-w-xs mx-auto">
+              Объект сохранён на прозрачном фоне и готов к использованию
+              в постах и историях
+            </div>
             <div className="flex gap-2 justify-center">
-              <button className="btn-ghost text-sm" onClick={onClose}><Icon name="Download" size={13} />Скачать PNG</button>
-              <button className="btn-primary text-sm" onClick={onClose}><Icon name="Plus" size={13} />Добавить на доску</button>
+              <button className="pk-btn pk-btn-ghost text-sm" onClick={onClose}>
+                <Icon name="Download" size={13} />
+                Скачать PNG
+              </button>
+              <button className="pk-btn pk-btn-primary text-sm" onClick={onClose}>
+                <Icon name="Plus" size={13} />
+                На доску
+              </button>
             </div>
           </div>
         )}
@@ -103,45 +250,110 @@ function CutoutEditor({ onClose }: { onClose: () => void }) {
   );
 }
 
-// New board modal
-function NewBoardModal({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string) => void }) {
+// ─── New Board Modal ──────────────────────────────────────────────────────────
+function NewBoardModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (name: string, gradient: string) => void;
+}) {
   const [name, setName] = useState("");
-  const [color, setColor] = useState("from-violet-500/30 to-pink-500/20");
-  const colors = [
-    "from-violet-500/30 to-pink-500/20",
-    "from-pink-500/30 to-rose-500/20",
-    "from-blue-500/30 to-cyan-500/20",
-    "from-emerald-500/30 to-teal-500/20",
-    "from-amber-500/30 to-orange-500/20",
-    "from-fuchsia-500/30 to-purple-500/20",
-  ];
+  const [gradient, setGradient] = useState(GRADIENT_OPTIONS[0]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)" }} onClick={onClose}>
-      <div className="animate-scale-in card p-5 w-80" style={{ background: "#10102a", boxShadow: "var(--shadow-elevated)" }} onClick={e => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.8)" }}
+      onClick={onClose}
+    >
+      <div
+        className="animate-scale-in pk-card p-5 w-80"
+        style={{ background: "var(--card)", boxShadow: "var(--shadow-lg)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-4">
-          <span className="section-title">Новая доска</span>
-          <button className="btn-icon" onClick={onClose}><Icon name="X" size={14} /></button>
+          <span className="pk-title">Новая доска</span>
+          <button className="pk-icon-btn" onClick={onClose}>
+            <Icon name="X" size={14} />
+          </button>
         </div>
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="Название доски…"
-          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none mb-4"
-          style={{ background: "var(--bg-input)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)", fontFamily: "Golos Text, sans-serif" }} />
-        <p className="text-xs mb-2 font-medium" style={{ color: "var(--text-secondary)" }}>Цвет обложки</p>
-        <div className="flex gap-2 mb-4">
-          {colors.map(c => (
-            <button key={c} onClick={() => setColor(c)}
-              className={`w-9 h-9 rounded-xl bg-gradient-to-br ${c} transition-all`}
-              style={{ border: `2px solid ${color === c ? "white" : "transparent"}`, transform: color === c ? "scale(1.15)" : "scale(1)" }} />
+
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Название доски…"
+          className="pk-input mb-4"
+          autoFocus
+        />
+
+        <div className="pk-label mb-2">Цвет обложки</div>
+        <div className="flex gap-2 mb-5 flex-wrap">
+          {GRADIENT_OPTIONS.map((g) => (
+            <button
+              key={g}
+              onClick={() => setGradient(g)}
+              className="rounded-xl transition-all"
+              style={{
+                width: 38,
+                height: 38,
+                background: g,
+                border: `2px solid ${gradient === g ? "var(--text)" : "transparent"}`,
+                transform: gradient === g ? "scale(1.15)" : "scale(1)",
+              }}
+            />
           ))}
         </div>
-        <button className="btn-primary w-full justify-center" onClick={() => { onCreate(name); onClose(); }} disabled={!name.trim()}>
-          <Icon name="Plus" size={13} />Создать доску
+
+        <button
+          className="pk-btn pk-btn-primary w-full"
+          onClick={() => {
+            onCreate(name, gradient);
+            onClose();
+          }}
+          disabled={!name.trim()}
+        >
+          <Icon name="Plus" size={13} />
+          Создать доску
         </button>
       </div>
     </div>
   );
 }
 
+// ─── Board Card ───────────────────────────────────────────────────────────────
+function BoardCard({
+  board,
+  cellColors,
+  onClick,
+}: {
+  board: Board;
+  cellColors: string[];
+  onClick: () => void;
+}) {
+  return (
+    <div
+      className="pk-card pk-card-hover p-3 cursor-pointer"
+      onClick={onClick}
+    >
+      {/* 2×2 preview */}
+      <div
+        className="grid grid-cols-2 gap-1 rounded-xl overflow-hidden mb-3"
+        style={{ height: 90 }}
+      >
+        {cellColors.map((c, i) => (
+          <div key={i} style={{ background: c }} />
+        ))}
+      </div>
+      <div className="font-semibold text-sm mb-0.5" style={{ color: "var(--text)" }}>
+        {board.name}
+      </div>
+      <div className="pk-subtitle">{board.count} объектов</div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function Boards() {
   const [allBoards, setAllBoards] = useState<Board[]>(boards);
   const [activeBoard, setActiveBoard] = useState<Board | null>(null);
@@ -149,12 +361,12 @@ export default function Boards() {
   const [showCutout, setShowCutout] = useState(false);
   const [showNewBoard, setShowNewBoard] = useState(false);
 
-  const handleCreate = (name: string) => {
+  const handleCreate = (name: string, gradient: string) => {
     if (!name.trim()) return;
-    setAllBoards(prev => [...prev, {
-      id: Date.now(), name, count: 0,
-      color: "from-violet-500/30 to-pink-500/20", items: [],
-    }]);
+    setAllBoards((prev) => [
+      ...prev,
+      { id: Date.now(), name, count: 0, color: gradient, items: [] },
+    ]);
   };
 
   const boardItems = activeBoard
@@ -163,144 +375,206 @@ export default function Boards() {
 
   return (
     <div className="animate-fade-in space-y-4">
-      {/* Header */}
-      <div className="card p-4 flex items-center gap-4">
+      {/* Toolbar */}
+      <div className="pk-card p-4 flex items-center gap-3">
         {activeBoard ? (
           <>
-            <button className="btn-icon" onClick={() => setActiveBoard(null)}><Icon name="ArrowLeft" size={15} /></button>
-            <span className="section-title">{activeBoard.name}</span>
-            <span className="text-sm ml-1" style={{ color: "var(--text-secondary)" }}>{activeBoard.count} изображений</span>
+            <button
+              className="pk-icon-btn"
+              onClick={() => { setActiveBoard(null); setShowAlts(false); }}
+            >
+              <Icon name="ArrowLeft" size={15} />
+            </button>
+            <div className="flex-1">
+              <div className="pk-title">{activeBoard.name}</div>
+              <div className="pk-subtitle">{activeBoard.count} объектов</div>
+            </div>
+            <button
+              className="pk-btn pk-btn-ghost text-xs"
+              onClick={() => setShowCutout(true)}
+            >
+              <Icon name="Scissors" size={12} />
+              Вырезать
+            </button>
+            <button
+              className={`pk-btn text-xs ${showAlts ? "pk-btn-primary" : "pk-btn-ghost"}`}
+              onClick={() => setShowAlts((s) => !s)}
+            >
+              <Icon name="Sparkles" size={12} />
+              {showAlts ? "Скрыть ИИ" : "ИИ альтернативы"}
+            </button>
           </>
         ) : (
-          <span className="section-title">Мои доски</span>
+          <>
+            <div className="flex-1">
+              <div className="pk-title">Мои доски</div>
+              <div className="pk-subtitle">{allBoards.length} досок</div>
+            </div>
+            <button
+              className="pk-btn pk-btn-primary text-sm"
+              onClick={() => setShowNewBoard(true)}
+            >
+              <Icon name="Plus" size={14} />
+              Создать
+            </button>
+          </>
         )}
-        <div className="flex gap-2 ml-auto">
-          <button className="btn-ghost text-sm" onClick={() => setShowCutout(true)}>
-            <Icon name="Scissors" size={13} />Вырезать объект
-          </button>
-          <button className="btn-primary text-sm" onClick={() => setShowNewBoard(true)}>
-            <Icon name="Plus" size={13} />Создать доску
-          </button>
-        </div>
       </div>
 
-      {!activeBoard ? (
-        <>
-          {/* Board grid */}
-          <div className="grid grid-cols-4 gap-4">
-            {allBoards.map(b => (
-              <div key={b.id} className="card overflow-hidden cursor-pointer card-hover" onClick={() => setActiveBoard(b)}>
-                <div className={`h-28 bg-gradient-to-br ${b.color} flex items-center justify-center relative`}>
-                  {/* Mini-grid preview */}
-                  <div className="grid grid-cols-2 gap-0.5 w-16 h-16 rounded-xl overflow-hidden">
-                    {[0, 1, 2, 3].map(i => (
-                      <div key={i} className={`bg-gradient-to-br ${feedItems[(b.id + i) % feedItems.length]?.color ?? "from-violet-900/40 to-purple-900/20"}`} />
-                    ))}
-                  </div>
-                </div>
-                <div className="p-3">
-                  <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{b.name}</div>
-                  <div className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{b.count} изображений</div>
-                </div>
-              </div>
-            ))}
-
-            {/* Create new */}
-            <button onClick={() => setShowNewBoard(true)}
-              className="card flex flex-col items-center justify-center cursor-pointer glass-hover"
-              style={{ minHeight: 160, border: "2px dashed rgba(139,92,246,0.3)" }}>
-              <Icon name="Plus" size={28} style={{ color: "var(--accent-1)" }} />
-              <span className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>Создать доску</span>
-            </button>
-          </div>
-
-          {/* Recent boards */}
-          <div className="card p-5">
-            <div className="section-title mb-4">Недавние доски</div>
-            <div className="grid grid-cols-3 gap-4">
-              {allBoards.slice(0, 3).map(b => (
-                <div key={b.id} className="rounded-2xl overflow-hidden cursor-pointer card-hover" onClick={() => setActiveBoard(b)}>
-                  <div className={`bg-gradient-to-br ${b.color} grid grid-cols-3 gap-0.5`} style={{ height: 100 }}>
-                    {[0, 1, 2, 3, 4, 5].map(i => (
-                      <div key={i} className={`bg-gradient-to-br ${feedItems[(b.id * 2 + i) % feedItems.length]?.color ?? "from-pink-900/40 to-rose-900/20"}`} />
-                    ))}
-                  </div>
-                  <div className="p-2.5" style={{ background: "var(--bg-card)", borderTop: "1px solid var(--border-subtle)" }}>
-                    <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{b.name}</div>
-                    <div className="text-xs" style={{ color: "var(--text-secondary)" }}>{b.count} изображений</div>
+      {/* Board open view */}
+      {activeBoard ? (
+        <div className={`flex gap-4 ${showAlts ? "items-start" : ""}`}>
+          {/* Masonry items */}
+          <div className={`${showAlts ? "flex-1" : "w-full"}`}>
+            <div className="columns-3 gap-3 space-y-0">
+              {boardItems.map((item, i) => (
+                <div
+                  key={item.id}
+                  className="pk-card-hover rounded-xl overflow-hidden cursor-pointer mb-3 break-inside-avoid group"
+                  style={{
+                    background: ITEM_COLORS[i % ITEM_COLORS.length],
+                    height: 100 + (i % 3) * 60,
+                  }}
+                >
+                  <div className="w-full h-full relative flex items-end p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: "linear-gradient(to top,rgba(0,0,0,0.5),transparent)" }}>
+                    <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.9)" }}>
+                      {item.text}
+                    </span>
                   </div>
                 </div>
               ))}
+
+              {/* Add item tile */}
+              <div
+                className="rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer mb-3 break-inside-avoid transition-all"
+                style={{
+                  height: 120,
+                  borderColor: "rgba(123,77,255,0.35)",
+                  background: "rgba(123,77,255,0.04)",
+                }}
+                onMouseEnter={(e) =>
+                  ((e.currentTarget as HTMLElement).style.borderColor = "var(--accent)")
+                }
+                onMouseLeave={(e) =>
+                  ((e.currentTarget as HTMLElement).style.borderColor = "rgba(123,77,255,0.35)")
+                }
+              >
+                <div className="flex flex-col items-center gap-2">
+                  <Icon name="Plus" size={24} style={{ color: "var(--accent)" }} />
+                  <span className="text-xs" style={{ color: "var(--text-3)" }}>
+                    Добавить
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
-        </>
-      ) : (
-        <>
-          {/* Board content + alternatives */}
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <div className="columns-3 gap-3" style={{ columnGap: "12px" }}>
-                {boardItems.map((item, i) => (
-                  <div key={item.id} className="pin-item rounded-xl overflow-hidden cursor-pointer" style={{ height: [200, 150, 250, 180, 220, 160][i % 6], borderRadius: "var(--radius-lg)" }}>
-                    <div className={`absolute inset-0 bg-gradient-to-br ${item.color}`} />
-                    <div className="pin-overlay">
-                      <p className="text-xs text-white/90 font-medium">{item.text}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-white/60 flex items-center gap-1"><Icon name="Heart" size={9} />{item.likes}</span>
-                      </div>
+
+          {/* AI alternatives panel */}
+          {showAlts && (
+            <div
+              className="pk-card p-4 animate-slide-up"
+              style={{ width: 260, flexShrink: 0 }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center"
+                  style={{ background: "var(--accent-grad)" }}
+                >
+                  <Icon name="Sparkles" size={14} style={{ color: "#fff" }} />
+                </div>
+                <div className="pk-title text-sm">ИИ подборка</div>
+              </div>
+              <div className="pk-subtitle mb-4">
+                Похожие объекты на основе вашей доски
+              </div>
+              <div className="space-y-2">
+                {ALTERNATIVES.map((alt) => (
+                  <div
+                    key={alt.id}
+                    className="rounded-xl overflow-hidden cursor-pointer group pk-card-hover"
+                    style={{ border: "1px solid var(--border)" }}
+                  >
+                    <div
+                      className="flex items-center justify-center"
+                      style={{ height: 70, background: alt.gradient }}
+                    >
+                      <Icon
+                        name={alt.icon}
+                        size={22}
+                        style={{ color: "rgba(255,255,255,0.35)" }}
+                      />
+                    </div>
+                    <div
+                      className="px-2 py-2 flex items-center justify-between"
+                      style={{ background: "var(--card)" }}
+                    >
+                      <span className="text-xs font-medium" style={{ color: "var(--text-2)" }}>
+                        {alt.text}
+                      </span>
+                      <button
+                        className="pk-icon-btn"
+                        style={{ width: 24, height: 24 }}
+                      >
+                        <Icon name="Plus" size={11} />
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
+              <button className="pk-btn pk-btn-ghost w-full mt-3 text-xs">
+                <Icon name="RefreshCw" size={11} />
+                Обновить подборку
+              </button>
             </div>
+          )}
+        </div>
+      ) : (
+        /* Board grid */
+        <div className="grid grid-cols-4 gap-4">
+          {allBoards.map((b, i) => (
+            <BoardCard
+              key={b.id}
+              board={b}
+              cellColors={BOARD_CELL_SETS[i % BOARD_CELL_SETS.length]}
+              onClick={() => setActiveBoard(b)}
+            />
+          ))}
 
-            {/* Right sidebar — alternatives */}
-            <div className="w-60 flex-shrink-0 space-y-3">
-              <div className="card p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>На основе доски</span>
-                  <button onClick={() => setShowAlts(!showAlts)} className="btn-icon">
-                    <Icon name="Sparkles" size={14} style={{ color: "var(--accent-1)" }} />
-                  </button>
-                </div>
-                <p className="text-xs mb-3" style={{ color: "var(--text-secondary)" }}>
-                  ИИ предложит похожий контент на основе вашей коллекции
-                </p>
-                <button className="btn-primary w-full justify-center text-sm" onClick={() => setShowAlts(true)}>
-                  <Icon name="Sparkles" size={12} />Предложить альтернативы
-                </button>
-              </div>
-
-              {showAlts && (
-                <div className="card p-4 animate-fade-in">
-                  <div className="section-title text-sm mb-3 flex items-center gap-2">
-                    <Icon name="Sparkles" size={14} style={{ color: "var(--accent-2)" }} />
-                    Рекомендации
-                  </div>
-                  <div className="space-y-2">
-                    {ALTERNATIVES.map(alt => (
-                      <div key={alt.id} className="rounded-xl overflow-hidden cursor-pointer card-hover">
-                        <div className={`h-20 bg-gradient-to-br ${alt.color} flex items-end p-2`}>
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-[10px] text-white/80 font-medium">{alt.text}</span>
-                            <button className="w-6 h-6 rounded-lg flex items-center justify-center"
-                              style={{ background: "rgba(255,255,255,0.2)" }}>
-                              <Icon name="Plus" size={11} style={{ color: "#fff" }} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+          {/* New board tile */}
+          <div
+            className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-all"
+            style={{
+              minHeight: 150,
+              borderColor: "rgba(123,77,255,0.3)",
+              background: "rgba(123,77,255,0.03)",
+            }}
+            onClick={() => setShowNewBoard(true)}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLElement).style.borderColor = "var(--accent)")
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLElement).style.borderColor = "rgba(123,77,255,0.3)")
+            }
+          >
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: "rgba(123,77,255,0.12)" }}
+            >
+              <Icon name="Plus" size={20} style={{ color: "var(--accent)" }} />
             </div>
+            <span className="text-xs font-medium" style={{ color: "var(--text-4)" }}>
+              Новая доска
+            </span>
           </div>
-        </>
+        </div>
       )}
 
+      {/* Modals */}
       {showCutout && <CutoutEditor onClose={() => setShowCutout(false)} />}
-      {showNewBoard && <NewBoardModal onClose={() => setShowNewBoard(false)} onCreate={handleCreate} />}
+      {showNewBoard && (
+        <NewBoardModal onClose={() => setShowNewBoard(false)} onCreate={handleCreate} />
+      )}
     </div>
   );
 }

@@ -1,165 +1,316 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import Avatar from "@/components/Avatar";
-import { communities, users, feedItems, tracks } from "@/data/mockData";
+import { communities, users, feedItems } from "@/data/mockData";
 
-const tabs = ["Мои", "Рекомендации", "Поиск"];
+type Community = (typeof communities)[0];
 
-// Full community page (shown in new tab simulation)
-function CommunityPage({ community, onClose }: { community: typeof communities[0]; onClose: () => void }) {
+const MAIN_TABS = ["Мои", "Рекомендации", "Поиск"];
+
+const PAGE_TABS = [
+  "Публикации",
+  "Участники",
+  "Обсуждения",
+  "Медиа",
+  "Управление",
+];
+
+// Cover gradient options — expressed as inline CSS strings to stay off Tailwind
+const COVER_OPTIONS = [
+  "linear-gradient(135deg,#7B4DFF,#E94FCB)",
+  "linear-gradient(135deg,#3b82f6,#06b6d4)",
+  "linear-gradient(135deg,#E94FCB,#f97316)",
+  "linear-gradient(135deg,#10b981,#06b6d4)",
+  "linear-gradient(135deg,#f59e0b,#ef4444)",
+  "linear-gradient(135deg,#8b5cf6,#ec4899)",
+];
+
+// Map community.color (Tailwind class) → a CSS gradient string for display
+function communityGradient(color: string): string {
+  if (color.includes("violet")) return "linear-gradient(135deg,#7B4DFF,#9333ea)";
+  if (color.includes("pink") || color.includes("rose")) return "linear-gradient(135deg,#E94FCB,#f43f5e)";
+  if (color.includes("blue") || color.includes("cyan")) return "linear-gradient(135deg,#3b82f6,#06b6d4)";
+  if (color.includes("emerald") || color.includes("teal")) return "linear-gradient(135deg,#10b981,#06b6d4)";
+  return "linear-gradient(135deg,#7B4DFF,#E94FCB)";
+}
+
+const AVATAR_EMOJIS = ["🌟", "🔥", "💎", "🚀", "🎨", "🌊", "🎵", "🌸", "🦋", "🐬"];
+
+const MANAGE_ITEMS = [
+  { icon: "Shield", label: "Модераторы", desc: "Управление командой" },
+  { icon: "FileText", label: "Правила", desc: "Правила сообщества" },
+  { icon: "Bell", label: "Уведомления", desc: "Настройки уведомлений" },
+  { icon: "BarChart2", label: "Статистика", desc: "Аналитика и данные" },
+  { icon: "Settings", label: "Настройки", desc: "Основные параметры" },
+  { icon: "PenSquare", label: "Публикации от имени сообщества", desc: "Управление публикациями" },
+  { icon: "Lock", label: "Приватность", desc: "Доступ и видимость" },
+];
+
+const ITEM_HEIGHTS = [180, 140, 200, 160, 220, 150, 170, 190, 155];
+
+// ─── Community Page (full overlay) ───────────────────────────────────────────
+
+function CommunityPage({
+  community,
+  onClose,
+}: {
+  community: Community;
+  onClose: () => void;
+}) {
   const [tab, setTab] = useState("Публикации");
   const [joined, setJoined] = useState(true);
-  const [editMode, setEditMode] = useState(false);
-  const [coverColor, setCoverColor] = useState(community.color);
+  const [editCover, setEditCover] = useState(false);
+  const [editAvatar, setEditAvatar] = useState(false);
+  const [coverGrad, setCoverGrad] = useState(communityGradient(community.color));
   const [avatarEmoji, setAvatarEmoji] = useState("🌟");
+  const [searchMember, setSearchMember] = useState("");
 
-  const pageTabs = ["Публикации", "Обсуждения", "Участники", "Медиа", "Мероприятия", "Ссылки", "Управление"];
-  const coverColors = [
-    "from-violet-600 to-pink-600",
-    "from-blue-600 to-cyan-600",
-    "from-pink-600 to-rose-600",
-    "from-emerald-600 to-teal-600",
-    "from-orange-600 to-amber-600",
-    "from-fuchsia-600 to-purple-600",
-  ];
-  const avatarEmojis = ["🌟", "🔥", "💎", "🚀", "🎨", "🌊", "🎵", "🌸"];
+  const filteredMembers = users.filter((u) =>
+    u.name.toLowerCase().includes(searchMember.toLowerCase())
+  );
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto animate-fade-in" style={{ background: "var(--bg-deep)" }}>
-      {/* Top bar */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 px-6 py-3" style={{ background: "rgba(13,13,43,0.92)", borderBottom: "1px solid var(--border-subtle)", backdropFilter: "blur(24px)" }}>
-        <button className="btn-icon" onClick={onClose}><Icon name="ArrowLeft" size={15} /></button>
-        <div className="flex-1">
-          <div className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>{community.name}</div>
-          <div className="text-xs" style={{ color: "var(--text-secondary)" }}>{community.members} подписчиков</div>
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto animate-fade-in"
+      style={{ background: "var(--bg)" }}
+    >
+      {/* Sticky top bar */}
+      <div
+        className="sticky top-0 z-20 flex items-center gap-3 px-5 py-3"
+        style={{
+          background: "rgba(7,11,31,0.88)",
+          borderBottom: "1px solid var(--border)",
+          backdropFilter: "blur(20px)",
+        }}
+      >
+        <button className="pk-icon-btn" onClick={onClose}>
+          <Icon name="ArrowLeft" size={15} />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-bold truncate" style={{ color: "var(--text)" }}>
+            {community.name}
+          </div>
+          <div className="pk-subtitle">{community.members} подписчиков</div>
         </div>
-        {joined && (
-          <button onClick={() => setEditMode(!editMode)} className="btn-ghost text-sm">
-            <Icon name="Settings" size={13} />Управление
-          </button>
-        )}
-        <button className="btn-icon"><Icon name="Share2" size={15} /></button>
-        <button className="btn-icon"><Icon name="MoreHorizontal" size={15} /></button>
+        <button className="pk-icon-btn" title="Поделиться">
+          <Icon name="Share2" size={15} />
+        </button>
+        <button className="pk-icon-btn" title="Ещё">
+          <Icon name="MoreHorizontal" size={15} />
+        </button>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 pb-8">
+      <div className="max-w-4xl mx-auto px-4 pb-10">
         {/* Cover */}
-        <div className="relative rounded-2xl overflow-hidden mb-0" style={{ height: 260 }}>
-          <div className={`absolute inset-0 bg-gradient-to-br ${coverColor}`} />
-          <div className="absolute inset-0 flex items-center justify-center opacity-10">
-            <div className="w-96 h-96 rounded-full blur-3xl" style={{ background: "rgba(255,255,255,0.3)" }} />
+        <div
+          className="relative overflow-hidden"
+          style={{ height: 260, background: coverGrad }}
+        >
+          {/* Glow blob */}
+          <div
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            style={{ opacity: 0.15 }}
+          >
+            <div
+              className="rounded-full"
+              style={{ width: 320, height: 320, background: "#fff", filter: "blur(80px)" }}
+            />
           </div>
 
-          {editMode && (
-            <div className="absolute bottom-4 right-4 flex gap-2">
-              <div className="card p-2 flex gap-1.5 flex-wrap" style={{ background: "rgba(10,10,30,0.85)", maxWidth: 200 }}>
-                {coverColors.map(c => (
-                  <button key={c} onClick={() => setCoverColor(c)}
-                    className={`w-7 h-7 rounded-lg bg-gradient-to-br ${c}`}
-                    style={{ border: `2px solid ${coverColor === c ? "#fff" : "transparent"}` }} />
-                ))}
-              </div>
+          {/* Cover edit palette */}
+          {editCover && (
+            <div
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 px-3 py-2 rounded-2xl animate-scale-in"
+              style={{ background: "rgba(7,11,31,0.85)", border: "1px solid var(--border-md)", backdropFilter: "blur(12px)" }}
+            >
+              {COVER_OPTIONS.map((g) => (
+                <button
+                  key={g}
+                  onClick={() => { setCoverGrad(g); setEditCover(false); }}
+                  className="rounded-xl transition-all"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    background: g,
+                    border: `2px solid ${coverGrad === g ? "#fff" : "transparent"}`,
+                    transform: coverGrad === g ? "scale(1.15)" : "scale(1)",
+                  }}
+                />
+              ))}
             </div>
           )}
 
-          <button className="absolute top-4 right-4 btn-ghost text-xs" style={{ background: "rgba(0,0,0,0.4)" }} onClick={() => setEditMode(!editMode)}>
-            <Icon name="Camera" size={12} />{editMode ? "Готово" : "Изменить шапку"}
+          <button
+            className="pk-btn pk-btn-ghost absolute top-4 right-4 text-xs"
+            style={{ background: "rgba(0,0,0,0.45)" }}
+            onClick={() => setEditCover((e) => !e)}
+          >
+            <Icon name="Camera" size={12} />
+            {editCover ? "Готово" : "Изменить"}
           </button>
         </div>
 
-        {/* Profile row */}
-        <div className="card px-6 py-4 mb-4 -mt-px rounded-t-none" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
-          <div className="flex items-end gap-4">
-            <div className="-mt-12 relative flex-shrink-0">
-              {editMode ? (
-                <div>
-                  <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl cursor-pointer"
-                    style={{ background: `linear-gradient(135deg, var(--bg-card), var(--bg-surface))`, border: "3px solid var(--bg-deep)", boxShadow: "var(--shadow-card)" }}>
-                    {avatarEmoji}
-                  </div>
-                  <div className="mt-2 flex gap-1 flex-wrap" style={{ maxWidth: 160 }}>
-                    {avatarEmojis.map(e => (
-                      <button key={e} onClick={() => setAvatarEmoji(e)}
-                        className={`text-xl w-8 h-8 rounded-lg flex items-center justify-center`}
-                        style={{ background: avatarEmoji === e ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.06)", border: `1px solid ${avatarEmoji === e ? "rgba(139,92,246,0.5)" : "transparent"}` }}>
-                        {e}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl"
-                  style={{ background: `linear-gradient(135deg, var(--bg-card), var(--bg-surface))`, border: "3px solid var(--bg-deep)", boxShadow: "var(--shadow-card)" }}>
-                  {avatarEmoji}
+        {/* Info card — overlaps cover bottom */}
+        <div
+          className="pk-card px-6 py-5 mb-4"
+          style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}
+        >
+          <div className="flex items-end gap-5">
+            {/* Avatar */}
+            <div style={{ marginTop: -52 }} className="relative flex-shrink-0">
+              <div
+                className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl cursor-pointer select-none"
+                style={{
+                  background: "var(--card)",
+                  border: "3px solid var(--bg)",
+                  boxShadow: "var(--shadow-md)",
+                }}
+                onClick={() => setEditAvatar((e) => !e)}
+              >
+                {avatarEmoji}
+              </div>
+              {editAvatar && (
+                <div
+                  className="absolute top-full left-0 mt-2 flex flex-wrap gap-1 p-2 rounded-xl animate-scale-in z-10"
+                  style={{
+                    background: "var(--card)",
+                    border: "1px solid var(--border-md)",
+                    boxShadow: "var(--shadow-lg)",
+                    width: 168,
+                  }}
+                >
+                  {AVATAR_EMOJIS.map((em) => (
+                    <button
+                      key={em}
+                      onClick={() => { setAvatarEmoji(em); setEditAvatar(false); }}
+                      className="text-xl w-9 h-9 flex items-center justify-center rounded-xl transition-all"
+                      style={{
+                        background: avatarEmoji === em ? "rgba(123,77,255,0.2)" : "var(--surface)",
+                        border: `1px solid ${avatarEmoji === em ? "var(--accent)" : "transparent"}`,
+                      }}
+                    >
+                      {em}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
 
-            <div className="flex-1 pb-1">
-              <div className="flex items-center gap-2 mb-0.5">
-                <h1 className="text-xl font-black" style={{ color: "var(--text-primary)" }}>{community.name}</h1>
+            {/* Meta */}
+            <div className="flex-1 min-w-0 pb-1">
+              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                <h1 className="text-xl font-black" style={{ color: "var(--text)" }}>
+                  {community.name}
+                </h1>
                 {community.verified && (
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "var(--accent-gradient)" }}>
+                  <div
+                    className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ background: "var(--accent-grad)" }}
+                  >
                     <Icon name="Check" size={10} style={{ color: "#fff" }} />
                   </div>
                 )}
               </div>
-              <div className="text-sm mb-2" style={{ color: "var(--text-secondary)" }}>{community.category} · {community.members} подписчиков</div>
-              {editMode ? (
-                <textarea defaultValue="Официальное сообщество. Делимся вдохновением каждый день."
-                  className="w-full resize-none text-sm rounded-xl px-3 py-2 outline-none"
-                  style={{ background: "var(--bg-input)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)", fontFamily: "Golos Text, sans-serif" }}
-                  rows={2} />
-              ) : (
-                <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Официальное сообщество. Делимся вдохновением каждый день.</div>
-              )}
+              <div className="pk-subtitle mb-2">
+                {community.category} · {community.members} подписчиков
+              </div>
+              <div className="text-sm" style={{ color: "var(--text-2)" }}>
+                Официальное сообщество. Делимся вдохновением каждый день.
+              </div>
             </div>
 
+            {/* Actions */}
             <div className="flex gap-2 pb-1 flex-shrink-0">
-              <button onClick={() => setJoined(!joined)} className={joined ? "btn-ghost text-sm" : "btn-primary text-sm"}>
-                {joined ? "Вы подписаны" : "Подписаться"}
+              <button
+                onClick={() => setJoined((j) => !j)}
+                className={`pk-btn ${joined ? "pk-btn-ghost" : "pk-btn-primary"} text-sm`}
+              >
+                {joined ? (
+                  <>
+                    <Icon name="Check" size={13} /> Вы подписаны
+                  </>
+                ) : (
+                  <>
+                    <Icon name="Plus" size={13} /> Подписаться
+                  </>
+                )}
               </button>
               {joined && (
-                <button className="btn-ghost text-sm"><Icon name="PenSquare" size={13} />Написать</button>
+                <button className="pk-btn pk-btn-ghost text-sm">
+                  <Icon name="PenSquare" size={13} /> Написать
+                </button>
               )}
             </div>
           </div>
 
           {/* Stats */}
-          <div className="flex gap-6 mt-3 pt-3" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+          <div
+            className="flex gap-8 mt-4 pt-4"
+            style={{ borderTop: "1px solid var(--border)" }}
+          >
             {[
               { label: "Подписчики", val: community.members },
               { label: "Публикации", val: "1.2К" },
               { label: "Онлайн", val: "842" },
-            ].map(s => (
+            ].map((s) => (
               <div key={s.label}>
-                <span className="font-bold text-base" style={{ color: "var(--text-primary)" }}>{s.val}</span>
-                <span className="text-sm ml-1.5" style={{ color: "var(--text-secondary)" }}>{s.label}</span>
+                <span className="font-bold text-base" style={{ color: "var(--text)" }}>
+                  {s.val}
+                </span>
+                <span className="text-sm ml-1.5 pk-subtitle">{s.label}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="card px-4 py-2 mb-4 flex gap-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-          {pageTabs.map(t => (
-            <button key={t} onClick={() => setTab(t)} className={`tab-item flex-shrink-0 ${tab === t ? "active" : ""}`}>{t}</button>
+        {/* Page tabs */}
+        <div
+          className="pk-card px-4 py-2.5 mb-4 flex gap-1 overflow-x-auto"
+          style={{ scrollbarWidth: "none" }}
+        >
+          {PAGE_TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`pk-tab flex-shrink-0 ${tab === t ? "active" : ""}`}
+            >
+              {t}
+            </button>
           ))}
         </div>
 
-        {/* Content */}
+        {/* Tab content */}
         {tab === "Публикации" && (
           <div className="grid grid-cols-3 gap-3">
             {feedItems.slice(0, 9).map((item, i) => (
-              <div key={item.id} className="card overflow-hidden cursor-pointer card-hover">
-                <div className={`bg-gradient-to-br ${item.color} flex items-center justify-center`} style={{ height: [180, 140, 200, 160, 220, 150, 170, 190, 155][i] }}>
-                  <Icon name={item.type === "video" ? "Play" : "Image"} size={32} style={{ color: "rgba(255,255,255,0.2)" }} />
+              <div key={item.id} className="pk-card overflow-hidden cursor-pointer pk-card-hover">
+                <div
+                  className="flex items-center justify-center"
+                  style={{
+                    height: ITEM_HEIGHTS[i],
+                    background: `linear-gradient(135deg,hsl(${(i * 40) % 360},60%,15%),hsl(${(i * 40 + 60) % 360},50%,10%))`,
+                  }}
+                >
+                  <Icon
+                    name={item.type === "video" ? "Play" : "Image"}
+                    size={32}
+                    style={{ color: "rgba(255,255,255,0.15)" }}
+                  />
                 </div>
                 <div className="p-3">
-                  <div className="text-sm font-medium line-clamp-2" style={{ color: "var(--text-primary)" }}>{item.text}</div>
-                  <div className="flex gap-3 mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
-                    <span className="flex items-center gap-1"><Icon name="Heart" size={10} />{item.likes}</span>
-                    <span className="flex items-center gap-1"><Icon name="MessageCircle" size={10} />{item.comments}</span>
+                  <div
+                    className="text-sm font-medium mb-1"
+                    style={{ color: "var(--text)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+                  >
+                    {item.text}
+                  </div>
+                  <div className="flex gap-3 text-xs" style={{ color: "var(--text-4)" }}>
+                    <span className="flex items-center gap-1">
+                      <Icon name="Heart" size={10} /> {item.likes}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Icon name="MessageCircle" size={10} /> {item.comments}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -168,48 +319,104 @@ function CommunityPage({ community, onClose }: { community: typeof communities[0
         )}
 
         {tab === "Участники" && (
-          <div className="grid grid-cols-3 gap-3">
-            {users.map(u => (
-              <div key={u.id} className="card p-4 flex items-center gap-3">
-                <Avatar name={u.name} colorClass={u.avatarColor} size="md" online={u.online} />
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{u.name}</div>
-                  <div className="text-xs" style={{ color: "var(--text-secondary)" }}>{u.bio}</div>
+          <div className="space-y-4">
+            <div className="pk-card p-3">
+              <input
+                className="pk-input"
+                placeholder="Поиск участников…"
+                value={searchMember}
+                onChange={(e) => setSearchMember(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              {filteredMembers.map((u) => (
+                <div key={u.id} className="pk-card pk-card-hover p-4 flex flex-col items-center text-center">
+                  <div className="relative mb-2">
+                    <Avatar name={u.name} colorClass={u.avatarColor} size="lg" online={u.online} />
+                  </div>
+                  <div className="text-sm font-semibold mb-0.5" style={{ color: "var(--text)" }}>
+                    {u.name}
+                  </div>
+                  <div className="pk-subtitle mb-3">{u.bio}</div>
+                  <button className="pk-btn pk-btn-ghost text-xs">
+                    <Icon name="MessageCircle" size={12} /> Написать
+                  </button>
                 </div>
-                <button className="btn-ghost text-xs py-1.5 px-2.5">Написать</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab === "Обсуждения" && (
+          <div className="space-y-3">
+            {[
+              { title: "Ваши любимые инструменты дизайна?", replies: 24, author: users[0] },
+              { title: "Делитесь своими последними работами", replies: 41, author: users[1] },
+              { title: "Рекомендации по курсам и книгам", replies: 17, author: users[2] },
+              { title: "Как найти первых клиентов?", replies: 33, author: users[3] },
+            ].map((d, i) => (
+              <div key={i} className="pk-card pk-card-hover p-4 flex items-center gap-4 cursor-pointer">
+                <Avatar name={d.author.name} colorClass={d.author.avatarColor} size="md" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold mb-0.5" style={{ color: "var(--text)" }}>
+                    {d.title}
+                  </div>
+                  <div className="pk-subtitle">
+                    {d.author.name} · {d.replies} ответов
+                  </div>
+                </div>
+                <Icon name="ChevronRight" size={16} style={{ color: "var(--text-4)" }} />
               </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "Медиа" && (
+          <div className="grid grid-cols-4 gap-2">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-xl cursor-pointer hover:opacity-80 transition-opacity"
+                style={{
+                  height: 110,
+                  background: `linear-gradient(135deg,hsl(${(i * 30) % 360},60%,15%),hsl(${(i * 30 + 60) % 360},50%,10%))`,
+                }}
+              />
             ))}
           </div>
         )}
 
         {tab === "Управление" && (
-          <div className="card p-5 space-y-4">
-            <div className="section-title mb-3">Управление сообществом</div>
-            {[
-              { icon: "Users", label: "Модераторы", desc: "Управление правами участников" },
-              { icon: "Shield", label: "Правила", desc: "Настройка правил сообщества" },
-              { icon: "Bell", label: "Уведомления", desc: "Настройка рассылки" },
-              { icon: "BarChart3", label: "Статистика", desc: "Охват, активность, рост" },
-              { icon: "Settings", label: "Настройки", desc: "Основная информация и видимость" },
-            ].map(item => (
-              <div key={item.label} className="flex items-center gap-3 p-3 rounded-xl glass-hover cursor-pointer" style={{ border: "1px solid var(--border-subtle)" }}>
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(139,92,246,0.15)" }}>
-                  <Icon name={item.icon} size={18} style={{ color: "var(--accent-1)" }} />
-                </div>
-                <div>
-                  <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{item.label}</div>
-                  <div className="text-xs" style={{ color: "var(--text-secondary)" }}>{item.desc}</div>
-                </div>
-                <Icon name="ChevronRight" size={15} className="ml-auto" style={{ color: "var(--text-muted)" }} />
+          <div className="pk-card overflow-hidden">
+            {MANAGE_ITEMS.map((item, i) => (
+              <div key={item.label}>
+                {i > 0 && <div style={{ height: 1, background: "var(--border)", marginLeft: 56 }} />}
+                <button
+                  className="flex items-center gap-4 w-full px-5 py-4 text-left transition-colors"
+                  style={{ background: "transparent" }}
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)")
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLElement).style.background = "transparent")
+                  }
+                >
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: "rgba(123,77,255,0.1)" }}
+                  >
+                    <Icon name={item.icon} size={17} style={{ color: "var(--accent)" }} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                      {item.label}
+                    </div>
+                    <div className="pk-subtitle">{item.desc}</div>
+                  </div>
+                  <Icon name="ChevronRight" size={15} style={{ color: "var(--text-4)" }} />
+                </button>
               </div>
             ))}
-          </div>
-        )}
-
-        {(tab !== "Публикации" && tab !== "Участники" && tab !== "Управление") && (
-          <div className="card p-12 flex flex-col items-center text-center">
-            <Icon name="PackageOpen" size={36} style={{ color: "var(--text-muted)" }} />
-            <div className="mt-2 font-semibold" style={{ color: "var(--text-secondary)" }}>Раздел «{tab}» пока пуст</div>
           </div>
         )}
       </div>
@@ -217,69 +424,161 @@ function CommunityPage({ community, onClose }: { community: typeof communities[0
   );
 }
 
-export default function CommunitiesPage() {
-  const [activeTab, setActiveTab] = useState("Рекомендации");
-  const [joined, setJoined] = useState<Set<number>>(new Set([1, 3]));
-  const [openCommunity, setOpenCommunity] = useState<typeof communities[0] | null>(null);
+// ─── Community Card ───────────────────────────────────────────────────────────
 
-  const toggle = (id: number) => {
-    setJoined(prev => {
-      const n = new Set(prev);
-      if (n.has(id)) { n.delete(id); } else { n.add(id); }
-      return n;
-    });
-  };
+function CommunityCard({
+  community,
+  onClick,
+}: {
+  community: Community;
+  onClick: () => void;
+}) {
+  const [joined, setJoined] = useState(false);
+  const grad = communityGradient(community.color);
+
+  return (
+    <div className="pk-card overflow-hidden pk-card-hover cursor-pointer" onClick={onClick}>
+      {/* Cover */}
+      <div
+        className="relative flex items-end px-4 pb-4"
+        style={{ height: 110, background: grad }}
+      >
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: "linear-gradient(to bottom,transparent 40%,rgba(0,0,0,0.35) 100%)" }}
+        />
+        {community.verified && (
+          <div
+            className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center"
+            style={{ background: "var(--accent-grad)" }}
+          >
+            <Icon name="Check" size={11} style={{ color: "#fff" }} />
+          </div>
+        )}
+        <div
+          className="relative w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+          style={{ background: "rgba(7,11,31,0.6)", backdropFilter: "blur(8px)", border: "2px solid rgba(255,255,255,0.15)" }}
+        >
+          🌟
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="p-4">
+        <div className="text-sm font-bold mb-0.5 truncate" style={{ color: "var(--text)" }}>
+          {community.name}
+        </div>
+        <div className="pk-subtitle mb-1">
+          {community.category} · {community.members}
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex -space-x-1.5">
+            {users.slice(0, 3).map((u) => (
+              <Avatar key={u.id} name={u.name} colorClass={u.avatarColor} size="xs" />
+            ))}
+          </div>
+          <span className="text-xs" style={{ color: "var(--text-4)" }}>
+            +{community.members}
+          </span>
+        </div>
+        <button
+          className={`pk-btn mt-3 w-full text-xs ${joined ? "pk-btn-ghost" : "pk-btn-primary"}`}
+          onClick={(e) => { e.stopPropagation(); setJoined((j) => !j); }}
+        >
+          {joined ? (
+            <>
+              <Icon name="Check" size={12} /> Подписан
+            </>
+          ) : (
+            <>
+              <Icon name="Plus" size={12} /> Подписаться
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+const RECOMMENDED: Community[] = [
+  ...communities,
+  { id: 5, name: "Архитектура и пространство", members: "189К", category: "Архитектура", verified: true, color: "from-orange-500 to-amber-600" },
+  { id: 6, name: "Музыкальная волна", members: "421К", category: "Музыка", verified: false, color: "from-fuchsia-500 to-purple-600" },
+];
+
+export default function Communities() {
+  const [mainTab, setMainTab] = useState("Мои");
+  const [search, setSearch] = useState("");
+  const [openCommunity, setOpenCommunity] = useState<Community | null>(null);
+
+  const displayList =
+    mainTab === "Поиск"
+      ? RECOMMENDED.filter((c) =>
+          c.name.toLowerCase().includes(search.toLowerCase()) ||
+          c.category.toLowerCase().includes(search.toLowerCase())
+        )
+      : mainTab === "Рекомендации"
+      ? RECOMMENDED
+      : communities;
 
   return (
     <div className="animate-fade-in space-y-4">
-      <div className="card p-4 flex items-center gap-4">
-        <span className="section-title">Сообщества</span>
-        <div className="flex gap-1">
-          {tabs.map(t => (
-            <button key={t} onClick={() => setActiveTab(t)} className={`tab-item ${activeTab === t ? "active" : ""}`}>{t}</button>
+      {/* Header */}
+      <div className="pk-card p-4 flex items-center gap-3 flex-wrap">
+        <div>
+          <div className="pk-title">Сообщества</div>
+          <div className="pk-subtitle">{communities.length} моих сообщества</div>
+        </div>
+        <div className="flex gap-1 ml-auto">
+          {MAIN_TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setMainTab(t)}
+              className={`pk-tab ${mainTab === t ? "active" : ""}`}
+            >
+              {t}
+            </button>
           ))}
         </div>
-        <button className="btn-primary ml-auto text-sm">
-          <Icon name="Plus" size={13} />Создать
+        <button className="pk-btn pk-btn-primary text-sm">
+          <Icon name="Plus" size={13} /> Создать
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        {communities.map(c => (
-          <div key={c.id} className="card overflow-hidden group card-hover">
-            <div className={`h-28 bg-gradient-to-br ${c.color} flex items-center justify-center relative cursor-pointer`}
-              onClick={() => setOpenCommunity(c)}>
-              <Icon name="Globe" size={40} style={{ color: "rgba(255,255,255,0.2)" }} />
-              {c.verified && (
-                <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "var(--accent-gradient)" }}>
-                  <Icon name="Check" size={11} style={{ color: "#fff" }} />
-                </div>
-              )}
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                style={{ background: "rgba(0,0,0,0.3)" }}>
-                <span className="text-white text-xs font-semibold flex items-center gap-1">
-                  <Icon name="ExternalLink" size={13} />Открыть
-                </span>
-              </div>
-            </div>
-            <div className="p-4">
-              <div className="font-bold text-sm mb-0.5 cursor-pointer hover:text-violet-300 transition-colors"
-                style={{ color: "var(--text-primary)" }}
-                onClick={() => setOpenCommunity(c)}>{c.name}</div>
-              <div className="text-xs mb-1" style={{ color: "var(--text-secondary)" }}>{c.category}</div>
-              <div className="flex items-center gap-1 text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-                <Icon name="Users" size={11} />{c.members} участников
-              </div>
-              <button onClick={() => toggle(c.id)}
-                className={`w-full text-xs py-2 rounded-xl font-semibold transition-all ${joined.has(c.id) ? "btn-ghost" : "btn-primary"}`}>
-                {joined.has(c.id) ? "Подписан" : "Подписаться"}
-              </button>
-            </div>
+      {/* Search (Поиск tab) */}
+      {mainTab === "Поиск" && (
+        <div className="pk-card p-3">
+          <div className="relative">
+            <Icon
+              name="Search"
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+              style={{ color: "var(--text-4)" }}
+            />
+            <input
+              className="pk-input"
+              style={{ paddingLeft: 36 }}
+              placeholder="Поиск сообществ…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
+        </div>
+      )}
+
+      {/* Grid */}
+      <div className="grid grid-cols-3 gap-4">
+        {displayList.map((c) => (
+          <CommunityCard key={c.id} community={c} onClick={() => setOpenCommunity(c)} />
         ))}
       </div>
 
-      {openCommunity && <CommunityPage community={openCommunity} onClose={() => setOpenCommunity(null)} />}
+      {/* Full community page overlay */}
+      {openCommunity && (
+        <CommunityPage community={openCommunity} onClose={() => setOpenCommunity(null)} />
+      )}
     </div>
   );
 }
