@@ -37,7 +37,7 @@ const pages: Record<string, React.FC> = {
 
 export default function App() {
   const [activePage, setActivePage] = useState("feed");
-  const [authed, setAuthed] = useState(false);
+  const [authed, setAuthed] = useState(true);
   const PageComponent = pages[activePage] || Feed;
 
   if (!authed) {
